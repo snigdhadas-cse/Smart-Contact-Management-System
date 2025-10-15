@@ -1,6 +1,3 @@
-Here’s a **professional `README.md`** for your **Contact Management System project** that you can directly use on GitHub or LinkedIn:
-
----
 
 # Contact Management System
 
