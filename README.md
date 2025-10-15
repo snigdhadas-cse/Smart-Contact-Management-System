@@ -55,8 +55,3 @@ This project was completed as part of a **Codesoft assignment**.
 
 This project is **open-source** and free to use for learning purposes.
 
----
-
-If you want, I can also create a **short, LinkedIn-ready version of this README** that highlights your project in a professional post for your profile. It would be optimized for engagement and clarity.
-
-Do you want me to do that too?
