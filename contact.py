@@ -1,6 +1,8 @@
-import tkinter as tk
-from tkinter import messagebox, ttk
 import sqlite3
+import csv
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from tkinter import messagebox, filedialog
 
 # -------------------- Database Setup --------------------
 def init_db():
@@ -32,17 +34,18 @@ def add_contact():
     email = entry_email.get().strip()
     address = entry_address.get().strip()
 
-    if name == "" or phone == "":
+    if not name or not phone:
         messagebox.showwarning("Input Error", "Name and Phone number are required!")
-    else:
-        try:
-            run_query("INSERT INTO contacts (name, phone, email, address) VALUES (?, ?, ?, ?)",
-                      (name, phone, email, address))
-            messagebox.showinfo("Success", "Contact added successfully!")
-            clear_fields()
-            view_contacts()
-        except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "Phone number already exists!")
+        return
+
+    try:
+        run_query("INSERT INTO contacts (name, phone, email, address) VALUES (?, ?, ?, ?)",
+                  (name, phone, email, address))
+        messagebox.showinfo("Success", "Contact added successfully!")
+        clear_fields()
+        view_contacts()
+    except sqlite3.IntegrityError:
+        messagebox.showerror("Error", "Phone number already exists!")
 
 def view_contacts():
     for row in contact_tree.get_children():
@@ -75,7 +78,7 @@ def delete_contact():
         return
     contact_id = contact_tree.item(selected_item)["values"][0]
     run_query("DELETE FROM contacts WHERE id=?", (contact_id,))
-    messagebox.showinfo("Success", "Contact deleted successfully!")
+    messagebox.showinfo("Deleted", "Contact deleted successfully!")
     view_contacts()
 
 def update_contact():
@@ -90,72 +93,121 @@ def update_contact():
     email = entry_email.get().strip()
     address = entry_address.get().strip()
 
-    if name == "" or phone == "":
+    if not name or not phone:
         messagebox.showwarning("Input Error", "Name and Phone number are required!")
-    else:
-        run_query("""
-            UPDATE contacts SET name=?, phone=?, email=?, address=?
-            WHERE id=?
-        """, (name, phone, email, address, contact_id))
-        messagebox.showinfo("Success", "Contact updated successfully!")
-        clear_fields()
-        view_contacts()
+        return
+
+    run_query("""
+        UPDATE contacts SET name=?, phone=?, email=?, address=?
+        WHERE id=?
+    """, (name, phone, email, address, contact_id))
+    messagebox.showinfo("Updated", "Contact updated successfully!")
+    clear_fields()
+    view_contacts()
 
 def clear_fields():
-    entry_name.delete(0, tk.END)
-    entry_phone.delete(0, tk.END)
-    entry_email.delete(0, tk.END)
-    entry_address.delete(0, tk.END)
+    entry_name.delete(0, 'end')
+    entry_phone.delete(0, 'end')
+    entry_email.delete(0, 'end')
+    entry_address.delete(0, 'end')
 
-# -------------------- UI Setup --------------------
-root = tk.Tk()
-root.title("Contact Management System")
-root.geometry("750x550")
-root.config(bg="#e8f0fe")
+# -------------------- CSV Import / Export --------------------
+def export_csv():
+    file = filedialog.asksaveasfilename(defaultextension=".csv",
+                                        filetypes=[("CSV files", "*.csv")])
+    if not file:
+        return
 
-frame = tk.Frame(root, bg="#e8f0fe")
-frame.pack(pady=10)
+    conn = sqlite3.connect("contacts.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, phone, email, address FROM contacts")
+    data = cursor.fetchall()
+    conn.close()
 
-tk.Label(frame, text="Name:", bg="#e8f0fe").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-entry_name = tk.Entry(frame, width=35)
+    with open(file, mode="w", newline='', encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Name", "Phone", "Email", "Address"])
+        writer.writerows(data)
+    messagebox.showinfo("Export Complete", "Contacts exported successfully!")
+
+def import_csv():
+    file = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+    if not file:
+        return
+
+    with open(file, mode="r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                run_query("INSERT INTO contacts (name, phone, email, address) VALUES (?, ?, ?, ?)",
+                          (row["Name"], row["Phone"], row["Email"], row["Address"]))
+            except sqlite3.IntegrityError:
+                continue  # skip duplicates
+    messagebox.showinfo("Import Complete", "Contacts imported successfully!")
+    view_contacts()
+
+# -------------------- UI Setup (ttkbootstrap) --------------------
+root = ttk.Window(themename="cosmo")  # You can try: cosmo, flatly, solar, morph, etc.
+root.title("Smart Contact Manager")
+root.geometry("850x600")
+
+# Title Label
+ttk.Label(root, text="📒 Smart Contact Manager", font=("Segoe UI", 20, "bold")).pack(pady=15)
+
+frame = ttk.Frame(root, padding=10)
+frame.pack()
+
+# Input Fields
+ttk.Label(frame, text="Name:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
+entry_name = ttk.Entry(frame, width=40)
 entry_name.grid(row=0, column=1, padx=5, pady=5)
 
-tk.Label(frame, text="Phone:", bg="#e8f0fe").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-entry_phone = tk.Entry(frame, width=35)
+ttk.Label(frame, text="Phone:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
+entry_phone = ttk.Entry(frame, width=40)
 entry_phone.grid(row=1, column=1, padx=5, pady=5)
 
-tk.Label(frame, text="Email:", bg="#e8f0fe").grid(row=2, column=0, padx=5, pady=5, sticky="e")
-entry_email = tk.Entry(frame, width=35)
+ttk.Label(frame, text="Email:").grid(row=2, column=0, padx=5, pady=5, sticky="e")
+entry_email = ttk.Entry(frame, width=40)
 entry_email.grid(row=2, column=1, padx=5, pady=5)
 
-tk.Label(frame, text="Address:", bg="#e8f0fe").grid(row=3, column=0, padx=5, pady=5, sticky="e")
-entry_address = tk.Entry(frame, width=35)
+ttk.Label(frame, text="Address:").grid(row=3, column=0, padx=5, pady=5, sticky="e")
+entry_address = ttk.Entry(frame, width=40)
 entry_address.grid(row=3, column=1, padx=5, pady=5)
 
-btn_frame = tk.Frame(root, bg="#e8f0fe")
-btn_frame.pack(pady=10)
+# Buttons
+btn_frame = ttk.Frame(root, padding=10)
+btn_frame.pack()
 
-tk.Button(btn_frame, text="Add", command=add_contact, bg="#34a853", fg="white", width=15).grid(row=0, column=0, padx=5)
-tk.Button(btn_frame, text="View All", command=view_contacts, bg="#4285f4", fg="white", width=15).grid(row=0, column=1, padx=5)
-tk.Button(btn_frame, text="Update", command=update_contact, bg="#fbbc05", fg="black", width=15).grid(row=0, column=2, padx=5)
-tk.Button(btn_frame, text="Delete", command=delete_contact, bg="#ea4335", fg="white", width=15).grid(row=0, column=3, padx=5)
+ttk.Button(btn_frame, text="Add Contact", command=add_contact, bootstyle=SUCCESS, width=15).grid(row=0, column=0, padx=5, pady=5)
+ttk.Button(btn_frame, text="View All", command=view_contacts, bootstyle=INFO, width=15).grid(row=0, column=1, padx=5, pady=5)
+ttk.Button(btn_frame, text="Update", command=update_contact, bootstyle=WARNING, width=15).grid(row=0, column=2, padx=5, pady=5)
+ttk.Button(btn_frame, text="Delete", command=delete_contact, bootstyle=DANGER, width=15).grid(row=0, column=3, padx=5, pady=5)
 
-search_frame = tk.Frame(root, bg="#e8f0fe")
-search_frame.pack(pady=10)
+# Search Bar
+search_frame = ttk.Frame(root, padding=10)
+search_frame.pack()
 
-tk.Label(search_frame, text="Search:", bg="#e8f0fe").grid(row=0, column=0, padx=5)
-entry_search = tk.Entry(search_frame, width=35)
+ttk.Label(search_frame, text="🔍 Search:").grid(row=0, column=0, padx=5)
+entry_search = ttk.Entry(search_frame, width=40)
 entry_search.grid(row=0, column=1, padx=5)
-tk.Button(search_frame, text="Search", command=search_contact, bg="#673ab7", fg="white", width=15).grid(row=0, column=2, padx=5)
+ttk.Button(search_frame, text="Search", command=search_contact, bootstyle=PRIMARY, width=15).grid(row=0, column=2, padx=5)
 
+# CSV Buttons
+csv_frame = ttk.Frame(root, padding=10)
+csv_frame.pack()
+
+ttk.Button(csv_frame, text="⬆ Import CSV", command=import_csv, bootstyle=SECONDARY, width=15).grid(row=0, column=0, padx=10)
+ttk.Button(csv_frame, text="⬇ Export CSV", command=export_csv, bootstyle=SUCCESS, width=15).grid(row=0, column=1, padx=10)
+
+# Treeview (Contact List)
 columns = ("ID", "Name", "Phone", "Email", "Address")
-contact_tree = ttk.Treeview(root, columns=columns, show="headings")
+contact_tree = ttk.Treeview(root, columns=columns, show="headings", bootstyle=INFO)
 for col in columns:
     contact_tree.heading(col, text=col)
-    contact_tree.column(col, width=140)
-contact_tree.pack(pady=10)
+    contact_tree.column(col, width=160)
+contact_tree.pack(pady=10, fill="both", expand=True)
 
-# -------------------- Initialize --------------------
+# Initialize
 init_db()
 view_contacts()
 
